@@ -14,8 +14,7 @@ from scipy.spatial import ConvexHull
 
 
 #Total number of robots
-N = 10
-
+N = 3
 # Laplacian for cycle
 L = completeGL(N)  #connectivity of robots (complete graph)
 
@@ -92,7 +91,11 @@ robo.axes.set_ylim(y_min-0.2,y_max+0.2)
 
 # Initial plots
 x = robo.get_poses()
-g = robo.axes.scatter(x[0,:], x[1,:], s=np.pi/4*safety_radius_marker_size, marker='o', facecolors='none',edgecolors=CM,linewidth=3)
+x_si = uni_to_si_states(x)
+current_x = x_si[0,:,None]
+current_y = x_si[1,:,None]
+#g = robo.axes.scatter(x[0,:], x[1,:], s=np.pi/4*safety_radius_marker_size, marker='o', facecolors='none',edgecolors=CM,linewidth=3)
+
 
 # robot number text generator
 robot_number_text = np.empty((3,0))
@@ -105,12 +108,28 @@ for kk in range(0,N)]
 
 robo.step() # Iterate the simulation
 
-
-hull_local_handler =[]
+# variables to record
+pose = []
+control_velocity_input =[]
+centroid = []
+control_input =[]
+dist_robot = [[0] for _ in range(N)]
+cumulative_distance = np.zeros(N)
+dist_all =0
+dist_all_each_iteration =[]
+previous_centroid =[]
 for k in range(iterations):
     # Get the poses of the robots
     x = robo.get_poses()
     x_si = uni_to_si_states(x)
+    for r in range(N):
+        dist = math.sqrt(np.square(x_si[0,r,None]-current_x[r]) + np.square(x_si[1,r,None]-current_y[r]))
+        cumulative_distance[r] = cumulative_distance[r] + dist
+        dist_all = dist_all + dist
+        dist_robot[r].append(cumulative_distance[r])
+    dist_all_each_iteration.append(dist_all)
+    
+    
     current_x = x_si[0,:,None]
     current_y = x_si[1,:,None]
 
@@ -119,10 +138,12 @@ for k in range(iterations):
         robot_labels[q].set_fontsize(determine_font_size(robo,font_size_m))
 
     # Update Plotted Visualization
-    g.set_offsets(x[:2,:].T)
+    #g.set_offsets(x[:2,:].T)
     # This updates the marker sizes if the figure window size is changed. 
     # This should be removed when submitting to the Robotarium.
-    g.set_sizes([determine_marker_size(robo,safety_radius)])
+   # g.set_sizes([determine_marker_size(robo,safety_radius)])
+
+    
 
     sum_cord = np.zeros((N, 2))
     num_points = np.zeros(N)
@@ -131,7 +152,7 @@ for k in range(iterations):
 
     for i, x_pos in enumerate(x_global_values):
         for j, y_pos in enumerate(y_global_values):
-            importance_value =1
+            importance_value = get_sensor(1,(x_pos,y_pos))
             distances =[]
             for r in range(N):
                 distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r])))
@@ -149,7 +170,6 @@ for k in range(iterations):
     for r in range(N):
         q_points = np.array(locations[r])
         hull = ConvexHull(q_points)
-        #hull_local_handler = [robo.axes.plot(q_points[simplex, 0], q_points[simplex, 1], 'b-', linewidth=5) for simplex in hull.simplices]
         boundary_points = q_points[hull.vertices]
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
@@ -159,6 +179,9 @@ for k in range(iterations):
 
 
     si_velocities = np.zeros((2,N))
+    Cx = []
+    Cy =[]
+
     for r in range(N):
         centroid_x = 0
         centroid_y = 0
@@ -167,8 +190,16 @@ for k in range(iterations):
             centroid_y = sum_cord[r][1]/num_points[r]           
             si_velocities[0][r]=1*(centroid_x-current_x[r])
             si_velocities[1][r] = 1*(centroid_y-current_y[r])
+            Cx.append(centroid_x)
+            Cy.append(centroid_y)
+        
 
-   
+    robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x')
+
+    
+
+
+
     # Make sure that the robots don't collide
     #si_velocities = si_barrier_cert(si_velocities, x_si)
 
@@ -177,6 +208,18 @@ for k in range(iterations):
 
     # Set the velocities of the robots
     robo.set_velocities(np.arange(N), dxu)
+
+    #recording variables
+    pose.append(x)
+    centroid.append([Cx,Cy])
+    control_velocity_input.append(si_velocities)
+    control_input.append(dxu)
+    print(k)
+    print(dist_all_each_iteration)
+    print('....')
+    if not np.all(si_velocities):
+        break
+
     # Iterate the simulation
     robo.step()
 
