@@ -52,11 +52,11 @@ def get_sensor(j,q):
 iterations = 1000 #number of steps/ iteration to run the simulation
 
 # Environment size and discretization 
-x_min =-1.6
-x_max = 1.6
-y_min = -1
-y_max = 1
-res = 0.03
+x_min =-1.5
+x_max = 1.5
+y_min = -1.5
+y_max = 1.5
+res = 0.05
 x_global_values = np.arange(x_min,x_max+res,res)
 y_global_values = np.arange(y_min,y_max+res,res) 
 
@@ -86,7 +86,7 @@ line_width = 5
 # Plot workspace boundary
 boundary_points = [[x_min,y_min],[x_min,y_max],[x_max,y_max],[x_max,y_min],[x_min,y_min]] 
 bound_x, bound_y = zip(*boundary_points) 
-square, =robo.axes.plot(bound_x, bound_y, 'b-',linewidth = 5) 
+square, =robo.axes.plot(bound_x, bound_y, 'b-',linewidth = 8) 
 robo.axes.set_xlim(x_min-0.2,x_max+0.2) 
 robo.axes.set_ylim(y_min-0.2,y_max+0.2)  
 
@@ -134,7 +134,7 @@ for k in range(iterations):
             importance_value =1
             distances =[]
             for r in range(N):
-                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r]))-wij[r][0])
+                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r])))
             min_value = np.min(distances)
             min_indexes = np.where(distances==min_value)[0]
             for min_index in min_indexes:
@@ -154,7 +154,7 @@ for k in range(iterations):
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
         yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =4))
+        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =8))
         hull_figHandles.append(hullHandle)
 
 

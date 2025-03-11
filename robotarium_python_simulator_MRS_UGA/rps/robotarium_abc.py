@@ -33,7 +33,8 @@ class RobotariumABC(ABC):
         self.initial_conditions = initial_conditions
 
         # Boundary stuff -> lower left point / width / height
-        self.boundaries = [-1.6, -1, 3.2, 2]
+        #self.boundaries = [-1.6, -1, 3.2, 2]
+        self.boundaries = [-1.5, -1.5, 3, 3]
 
         self.file_path = None
         self.current_file_size = 0
