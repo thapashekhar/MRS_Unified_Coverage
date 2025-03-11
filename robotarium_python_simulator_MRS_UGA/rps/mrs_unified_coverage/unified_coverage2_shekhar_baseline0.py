@@ -118,6 +118,7 @@ cumulative_distance = np.zeros(N)
 dist_all =0
 dist_all_each_iteration =[]
 previous_centroid =[]
+terminate_flag = False
 for k in range(iterations):
     # Get the poses of the robots
     x = robo.get_poses()
@@ -143,12 +144,9 @@ for k in range(iterations):
     # This should be removed when submitting to the Robotarium.
    # g.set_sizes([determine_marker_size(robo,safety_radius)])
 
-    
-
     sum_cord = np.zeros((N, 2))
     num_points = np.zeros(N)
     locations = [[] for _ in range(N)]
-
 
     for i, x_pos in enumerate(x_global_values):
         for j, y_pos in enumerate(y_global_values):
@@ -187,18 +185,22 @@ for k in range(iterations):
         centroid_y = 0
         if not num_points[r]==0:
             centroid_x = sum_cord[r][0]/num_points[r]
-            centroid_y = sum_cord[r][1]/num_points[r]           
-            si_velocities[0][r]=1*(centroid_x-current_x[r])
+            centroid_y = sum_cord[r][1]/num_points[r] 
+            centroid_position_difference_x  = centroid_x-current_x[r]    
+            centroid_position_difference_y  = centroid_y-current_y[r]
+            if (abs(centroid_position_difference_x) < 0.05 and abs(centroid_position_difference_y) <0.05):
+                terminate_flag = True
+            else:
+                terminate_flag = False
+            si_velocities[0][r]= 1*(centroid_x-current_x[r])
             si_velocities[1][r] = 1*(centroid_y-current_y[r])
             Cx.append(centroid_x)
             Cy.append(centroid_y)
         
-
+    if terminate_flag:
+        print("here")
+        break
     robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x')
-
-    
-
-
 
     # Make sure that the robots don't collide
     #si_velocities = si_barrier_cert(si_velocities, x_si)
@@ -214,9 +216,6 @@ for k in range(iterations):
     centroid.append([Cx,Cy])
     control_velocity_input.append(si_velocities)
     control_input.append(dxu)
-    print(k)
-    print(dist_all_each_iteration)
-    print('....')
     if not np.all(si_velocities):
         break
 
