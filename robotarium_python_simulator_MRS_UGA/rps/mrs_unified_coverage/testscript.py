@@ -52,10 +52,10 @@ def get_sensor(j,q):
 iterations = 1000 #number of steps/ iteration to run the simulation
 
 # Environment size and discretization 
-x_min =-1.6
-x_max = 1.6
-y_min = -1
-y_max = 1
+x_min =-1.5
+x_max = 1.5
+y_min = -1.5
+y_max = 1.5
 res = 0.05
 x_global_values = np.arange(x_min,x_max+res,res)
 y_global_values = np.arange(y_min,y_max+res,res) 
@@ -102,84 +102,4 @@ for jj in range(1,N+1):
 robot_labels = [robo.axes.text(x[0,kk],x[1,kk]+0.2,robot_number_text[kk],fontsize=font_size, color='b',fontweight='bold',horizontalalignment='center',verticalalignment='center',zorder=0)
 for kk in range(0,N)]
 
-robo.step() # Iterate the simulation
-
-
-hull_local_handler =[]
-for k in range(iterations):
-    # Get the poses of the robots
-    x = robo.get_poses()
-    x_si = uni_to_si_states(x)
-    current_x = x_si[0,:,None]
-    current_y = x_si[1,:,None]
-
-    for q in range(N):
-        robot_labels[q].set_position([x_si[0,q],x_si[1,q]+0.2])
-        robot_labels[q].set_fontsize(determine_font_size(robo,font_size_m))
-
-    # Update Plotted Visualization
-    g.set_offsets(x[:2,:].T)
-    # This updates the marker sizes if the figure window size is changed. 
-    # This should be removed when submitting to the Robotarium.
-    g.set_sizes([determine_marker_size(robo,safety_radius)])
-
-    sum_cord = np.zeros((N, 2))
-    num_points = np.zeros(N)
-    weight_i = np.ones(N)
-    weight_i[0]=1
-    locations = [[] for _ in range(N)]
-
-
-    for i, x_pos in enumerate(x_global_values):
-        for j, y_pos in enumerate(y_global_values):
-            importance_value =1
-            distances =[]
-            for r in range(N):
-                distances.append((np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r]))-weight_i[r])
-            min_value = np.min(distances)
-            min_indexes = np.where(distances==min_value)[0]
-            for min_index in min_indexes:
-                sum_cord[min_index][0] += x_pos*importance_value
-                sum_cord[min_index][1] += y_pos*importance_value
-                num_points[min_index] += 1
-                locations[min_index].append([x_pos, y_pos])
-    
-    if k>0:
-        [plot.remove() for plot in hull_figHandles] 
-    hull_figHandles =[]
-    for r in range(N):
-        q_points = np.array(locations[r])
-        hull = ConvexHull(q_points)
-        #hull_local_handler = [robo.axes.plot(q_points[simplex, 0], q_points[simplex, 1], 'b-', linewidth=5) for simplex in hull.simplices]
-        boundary_points = q_points[hull.vertices]
-        xss, yss = boundary_points[:, 0], boundary_points[:, 1]
-        xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
-        yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =4))
-        hull_figHandles.append(hullHandle)
-
-
-    si_velocities = np.zeros((2,N))
-    for r in range(N):
-        centroid_x = 0
-        centroid_y = 0
-        if not num_points[r]==0:
-            centroid_x = sum_cord[r][0]/num_points[r]
-            centroid_y = sum_cord[r][1]/num_points[r]           
-            si_velocities[0][r]=1*(centroid_x-current_x[r])
-            si_velocities[1][r] = 1*(centroid_y-current_y[r])
-
-   
-    # Make sure that the robots don't collide
-    #si_velocities = si_barrier_cert(si_velocities, x_si)
-
-    # Transform the single-integrator dynamcis to unicycle dynamics
-    dxu = si_to_uni_dyn(si_velocities, x)
-
-    # Set the velocities of the robots
-    robo.set_velocities(np.arange(N), dxu)
-    # Iterate the simulation
-    robo.step()
-
-#Call at end of script to print debug information and for your script to run on the Robotarium server properly
-robo.call_at_scripts_end()
+plt.pause(5)
