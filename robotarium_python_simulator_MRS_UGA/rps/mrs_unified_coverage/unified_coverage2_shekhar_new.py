@@ -133,10 +133,11 @@ robo.step() # Iterate the simulation
 #dist_robot = [[0] for _ in range(N)]
 #cumulative_distance = np.zeros(N)
 #iteration_list =[]
+terminate_flag = [False for _ in range(N)]
+previous_centroid =[]
+
 dist_all =0
 cumulative_distance =[]
-previous_centroid =[]
-terminate_flag = [False for _ in range(N)]
 locational_cost =[]
 health_cost = []
 mobility_cost = []
@@ -176,7 +177,7 @@ for k in range(iterations):
             importance_value = get_sensor(1,(x_pos,y_pos))
             distances =[]
             for r in range(N):
-                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r]))-0.2)
+                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r])))
             min_index = np.argmin(distances)
             sum_cord[min_index][0] += x_pos*importance_value
             sum_cord[min_index][1] += y_pos*importance_value

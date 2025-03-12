@@ -200,7 +200,7 @@ for k in range(iterations):
     diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
     print("diff", diff)
     if diff < 0.01:
-        plt.savefig('./plot/coverageB0S6.png')
+        plt.savefig('./plot/coverageB3S6.png')
         print("Converged")
         time.sleep(5)
         break
@@ -209,11 +209,11 @@ for k in range(iterations):
     prev_x = x_si[:2, :]
 
 
-save_list_to_csv(locational_cost, './csv/s6/locationalCostB0.csv')
-save_list_to_csv(health_cost, './csv/s6/healthCostB0.csv')
-save_list_to_csv(mobility_cost, './csv/s6/mobilityCostB0.csv')
-save_list_to_csv(range_cost, './csv/s6/rangeCostB0.csv')
-save_list_to_csv(proposed_cost, './csv/s6/proposedCostB0.csv')
-save_list_to_csv(cumulative_distance, './csv/s6/cumulativeDistanceTravelB0.csv')
+save_list_to_csv(locational_cost, './csv/s6/locationalCostB3.csv')
+save_list_to_csv(health_cost, './csv/s6/healthCostB3.csv')
+save_list_to_csv(mobility_cost, './csv/s6/mobilityCostB3.csv')
+save_list_to_csv(range_cost, './csv/s6/rangeCostB3.csv')
+save_list_to_csv(proposed_cost, './csv/s6/proposedCostB3.csv')
+save_list_to_csv(cumulative_distance, './csv/s6/cumulativeDistanceTravelB3.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
