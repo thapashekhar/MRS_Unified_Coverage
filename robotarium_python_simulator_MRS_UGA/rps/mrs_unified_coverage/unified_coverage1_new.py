@@ -4,7 +4,7 @@ from rps.utilities.transformations import *
 from rps.utilities.barrier_certificates import *
 from rps.utilities.misc import *
 from rps.utilities.controllers import *
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, Voronoi
 import numpy as np
 
 # Instantiate Robotarium object
@@ -140,6 +140,7 @@ for k in range(iterations):
             weight[m-1] = Hij[n][index] * Rrsi[n][index]
     weight = weight / np.sum(weight)
     print("weight", weight)
+    
     for ix in np.arange(x_min,x_max,res):
         for iy in np.arange(y_min,y_max,res):
             importance_value = 1
@@ -166,7 +167,8 @@ for k in range(iterations):
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
         yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
+        # hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
+        hullHandle, = (robo.axes.plot(xss, yss, color=CM[r], linewidth=3))
         hull_figHandles.append(hullHandle)  
     # Initialize the single-integrator control inputs
     si_velocities = np.zeros((2, N))
