@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 
 
 def scenario_setting(scenario_number):
@@ -218,4 +219,48 @@ def scenario_setting(scenario_number):
         Rrsi[1] = [1, 1, 0.5,1,1]  # Range of robot with sensor type 2 
 
     return N,S,Nj,wij,Hij,Vr,Rrsi
+
+# Density function
+def get_sensor(q,sensorType =1):
+    phi = 1
+    return phi
+
+# Saving the list to a CSV file
+def save_list_to_csv(my_list, filename):
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        for item in my_list:
+            writer.writerow([item])
+
+    print(f"List saved to {filename}")
+
+def calculate_distance(point1, point2):
+    return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
+
+def cost(N,locations,robot_position, velocity, weightr, sensor_type = 1, robot_velocity=1, weight=1, capacity=1):
+    locational_cost = 0
+    health_cost =0
+    mobility_cost =0
+    range_cost = 0
+    proposed_cost = 0
+    for r in range(N):
+        distances = [calculate_distance([robot_position[0][r],robot_position[1][r]], point)*get_sensor(point[0],point[1]) for point in locations[r]]
+        health = [0.5*(calculate_distance([robot_position[0][r],robot_position[1][r]], point)-weight)*get_sensor(point[0],point[1]) for point in locations[r]]
+        temporal = [(1/velocity[r]**2)*(calculate_distance([robot_position[0][r],robot_position[1][r]], point))*get_sensor(point[0],point[1]) for point in locations[r]]
+        RangE = [calculate_distance([robot_position[0][r],robot_position[1][r]], point)*get_sensor(point[0],point[1]) for point in locations[r]]
+        #for i, point in enumerate(locations[r]):
+           # if RangE[i] <=Rr[r]:
+             #   RangE[i] =  RangE[i]*get_sensor(point[0],point[1])
+           # else:
+
+            
+
+        prop_cost = [(0.5*(calculate_distance([robot_position[0][r],robot_position[1][r]], point)-weightr[r])/velocity[r]**2)*get_sensor(point[0],point[1]) for point in locations[r]]
+        locational_cost+=sum(distances)
+        health_cost+=sum(health)
+        mobility_cost+=sum(temporal)
+        range_cost+=sum(RangE)
+        proposed_cost += sum(prop_cost)
+
+    return locational_cost, health_cost, mobility_cost,range_cost, proposed_cost
     

@@ -6,11 +6,12 @@ from rps.utilities.misc import *
 from rps.utilities.controllers import *
 from scipy.spatial import ConvexHull, Voronoi
 import numpy as np
-from test_scenario import scenario_setting
+from test_utilities import *
+import time
 
 
 #Scenerio initilization
-N, S, Nj, wij, Hij, Vr, Rrsi = scenario_setting(scenario_number=1) # insert sceneraio number
+N, S, Nj, wij, Hij, Vr, Rrsi = scenario_setting(scenario_number=3) # insert sceneraio number
 # N is number of robots
 # S sensor type
 # Nj is set of robots for each sensor type
@@ -27,7 +28,7 @@ initial_conditions = np.asarray([[1.25, 0.25, 0], [1, 0.5, 0], [1, -0.5, 0],
 robo = robotarium.Robotarium(number_of_robots=N, show_figure=True, sim_in_real_time=False, initial_conditions=initial_conditions[0:N].T)
 
 # How many iterations do we want (about N*0.033 seconds)
-iterations = 500
+iterations = 1000
 
 # We're working in single-integrator dynamics, and we don't want the robots
 # to collide or drive off the testbed.  Thus, we're going to use barrier certificates
@@ -60,11 +61,13 @@ x_max = 1.5
 y_min = -1
 y_max = 1
 res = 0.03
+x_global_values = np.arange(x_min,x_max+res,res)
+y_global_values = np.arange(y_min,y_max+res,res) 
 
 # Plot workspace boundary
 boundary_points = [[x_min, y_min], [x_min, y_max], [x_max, y_max], [x_max, y_min], [x_min, y_min]]
 bound_x, bound_y = zip(*boundary_points)
-square, = robo.axes.plot(bound_x, bound_y, 'b-', linewidth=3)
+#square, = robo.axes.plot(bound_x, bound_y, 'black', linewidth=3)
 robo.axes.set_xlim(x_min - 0.2, x_max + 0.2)
 robo.axes.set_ylim(y_min - 0.2, y_max + 0.2)
 
@@ -82,11 +85,20 @@ for jj in range(1, N + 1):
 robot_labels = [robo.axes.text(x_i[0, kk], x_i[1, kk] + 0.2, robot_number_text[kk], fontsize=font_size, color='b', fontweight='bold', horizontalalignment='center', verticalalignment='center', zorder=0)
                 for kk in range(0, N)]
 
+robo.axes.scatter(x[0,:], x[1,:], s=35, color= [CM[i] for i in range(N)], marker='x') #Initial point mark
+
 robo.step()  # Iterate the simulation
 
 
-locations = [[] for _ in range(N)]
+# initilization of variables for data recording
 prev_x = np.zeros((2, N))
+dist_all =0
+cumulative_distance =[]
+locational_cost =[]
+health_cost = []
+mobility_cost = []
+range_cost = []
+proposed_cost =[]
 
 for k in range(iterations):
     print('iteration k = ', k)
@@ -95,6 +107,10 @@ for k in range(iterations):
     x_si = uni_to_si_states(x)
     current_x = x_si[0,:,None]
     current_y = x_si[1,:,None]
+    for r in range(N):
+        dist = np.sqrt(np.square(x_si[0,r,None]-current_x[r]) + np.square(x_si[1,r,None]-current_y[r]))
+        dist_all = dist_all + dist
+    cumulative_distance.append(dist_all)
     
     for q in range(N):
         robot_labels[q].set_position([x_si[0, q], x_si[1, q] + 0.2])
@@ -116,51 +132,57 @@ for k in range(iterations):
             weight[m-1] = Hij[n][index] * Rrsi[n][index]
     weight = weight / np.sum(weight)
     print("weight", weight)
+    locations = [[] for _ in range(N)]
+    #for s in range(len(S)):
+    for ix in np.arange(x_min,x_max+res,res):
+        for iy in np.arange(y_min,y_max+res,res):
+            importance_value = get_sensor((ix,iy))
+            distances = np.zeros(N)
+            for robots in range(N):
+                distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))-weight[robots])/Vr[robots] #proposed
+                #distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots])) # Baseline0
+                #distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))/Vr[robots] # Baseline3
+
+            # print("distances", distances)
+            min_index = np.argmin(distances)
+            c_v[min_index][0] += ix * importance_value
+            c_v[min_index][1] += iy * importance_value
+            w_v[min_index] += 1
+            locations[min_index].append([ix, iy])
+    if k > 0:
+        for plot in hull_figHandles:
+            plot.remove()
+    hull_figHandles =[]
+    for r in range(N):
+        q_points = np.array(locations[r])
+        hull = ConvexHull(q_points)
+        boundary_points = q_points[hull.vertices]
+        xss, yss = boundary_points[:, 0], boundary_points[:, 1]
+        xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a cyclic vertices for enclosed geometry
+        yss = np.concatenate((yss, [yss[0]]))
+        hullHandle, = (robo.axes.plot(xss, yss, color=CM[r], linewidth=3))
+        hull_figHandles.append(hullHandle)  
+    # Initialize the single-integrator control inputs
+    si_velocities = np.zeros((2, N))
     
-    for s in range(len(S)):
-        for ix in np.arange(x_min,x_max+res,res):
-            for iy in np.arange(y_min,y_max+res,res):
-                importance_value = 1
-                distances = np.zeros(N)
-                for robots in range(N):
-                    distances[robots] = abs((np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))- weight[robots]))/Vr[robots]
-                # print("distances", distances)
-                min_index = np.argmin(distances)
-                c_v[min_index][0] += ix * importance_value
-                c_v[min_index][1] += iy * importance_value
-                w_v[min_index] += 1
-                locations[min_index].append([ix, iy])
-        if k > 0:
-            for plot in hull_figHandles:
-                plot.remove()
-        hull_figHandles =[]
-        for r in range(N):
-            q_points = np.array(locations[r])
-            hull = ConvexHull(q_points)
-            boundary_points = q_points[hull.vertices]
-            xss, yss = boundary_points[:, 0], boundary_points[:, 1]
-            xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
-            yss = np.concatenate((yss, [yss[0]]))
-            # hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
-            hullHandle, = (robo.axes.plot(xss, yss, color=CM[r], linewidth=8))
-            hull_figHandles.append(hullHandle)  
-        # Initialize the single-integrator control inputs
-        si_velocities = np.zeros((2, N))
-    
-  
-      
     for robots in range(N):
        c_x = 0
        c_y = 0
        if not w_v[robots] == 0:
           c_x = c_v[robots][0] / w_v[robots]
           c_y = c_v[robots][1] / w_v[robots]  
-                    
-            
+          # control inputs          
           si_velocities[:, robots] = 1 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
 
+    Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight) 
+    locational_cost.append(Hg)
+    health_cost.append(Hp)
+    mobility_cost.append(Ht)
+    range_cost.append(Hr)
+    proposed_cost.append(Hgen)
+
     # Use the barrier certificate to avoid collisions
-    si_velocities = si_barrier_cert(si_velocities, x_si)
+    #si_velocities = si_barrier_cert(si_velocities, x_si)
 
     
     # Transform single integrator to unicycle
@@ -173,14 +195,24 @@ for k in range(iterations):
     # Iterate the simulation
     robo.step()
     
+    robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x') # plotting trajectory
     # Calculate the change in positions
     diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
     print("diff", diff)
     if diff < 0.01:
+        plt.savefig('./plot/coverageS2.png')
+        print("Converged")
+        time.sleep(5)
         break
 
     # Update the previous positions
     prev_x = x_si[:2, :]
 
+save_list_to_csv(cumulative_distance, './csv/s2/cumulativeDistanceTravel.csv')
+save_list_to_csv(locational_cost, './csv/s2/locationalCost.csv')
+save_list_to_csv(health_cost, './csv/s2/healthCost.csv')
+save_list_to_csv(mobility_cost, './csv/s2/mobilityCost.csv')
+save_list_to_csv(range_cost, './csv/s2/rangeCost.csv')
+save_list_to_csv(proposed_cost, './csv/s2/proposedCost.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()

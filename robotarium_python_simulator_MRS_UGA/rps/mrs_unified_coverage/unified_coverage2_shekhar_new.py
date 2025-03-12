@@ -12,36 +12,17 @@ import csv
 import copy
 import time
 from scipy.spatial import ConvexHull
+from test_scenario import scenario_setting
 
 
-#Total number of robots
-N = 10
-# Laplacian for cycle
-L = completeGL(N)  #connectivity of robots (complete graph)
-
-# sensor type
-S = [1,2] 
-
-# Set of Robots for each sensor typpe Nj
-Nj = [[] for _ in range(len(S))] 
-Nj[0] = [1,2,3,4,5]  # set of robots with sensor type 1
-Nj[1] = [6,7,8,9,10]  # set of robots with sensor type 2
-
-# weights of robot i for sensor type j
-wij = np.ones((len(S),N ))
-
-# Health of robots for each senosr type hij (normalized)
-Hij = [[] for _ in range(len(S))] 
-Hij[0] = [1,1,1,1,1]  # sensor health of type 1
-Hij[1] = [1,1,1,1,1]  # senosr health of type 2
-
-# Velocity of robots (m/s)
-Vr = np.ones(N)
-
-# Range of robots Rrsi (normalizied)
-Rrsi = [[] for _ in range(len(S))] 
-Rrsi[0] = [1,1,1,1,1]  # range of robot with sensor type 1
-Rrsi[1] = [1,1,1,1,1] # range of robot with sensor type 2
+#Scenerio initilization
+N, S, Nj, wij, Hij, Vr, Rrsi = scenario_setting(scenario_number=1) # insert sceneraio number
+# N is number of robots
+# S sensor type
+# Nj is set of robots for each sensor type
+# wij weight for robot i with j type senosr
+# Hij sensor j health in i robot
+# Rrsi sensor range of robot i with sensor type   
 
 # Density function
 def get_sensor(j,q):
@@ -101,6 +82,9 @@ initial_conditions = np.asarray([[1.25, 0.25, 0],[1, 0.5, 0],[1, -0.5, 0],
 robo = robotarium.Robotarium(number_of_robots=N, show_figure=True, sim_in_real_time=False, initial_conditions= initial_conditions[0:N].T)
 #si_barrier_cert = create_single_integrator_barrier_certificate_with_boundary()
 si_to_uni_dyn, uni_to_si_states = create_si_to_uni_mapping()
+
+# Generated a connected graph Laplacian (for a cylce graph).
+L = completeGL(N)
 
 
 # Plotting Parameters
