@@ -8,13 +8,14 @@ from rps.utilities.controllers import *
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import csv
 import copy
 import time
 from scipy.spatial import ConvexHull
 
 
 #Total number of robots
-N = 3
+N = 10
 # Laplacian for cycle
 L = completeGL(N)  #connectivity of robots (complete graph)
 
@@ -27,7 +28,8 @@ Nj[0] = [1,2,3,4,5]  # set of robots with sensor type 1
 Nj[1] = [6,7,8,9,10]  # set of robots with sensor type 2
 
 # weights of robot i for sensor type j
-wij = np.zeros((N, len(S)))
+wij = np.ones((len(S),N ))
+wij[0,6] =0.5
 
 # Health of robots for each senosr type hij (normalized)
 Hij = [[] for _ in range(len(S))] 
@@ -46,6 +48,15 @@ Rrsi[1] = [1,1,1,1,1] # range of robot with sensor type 2
 def get_sensor(j,q):
     phi = 1
     return phi
+
+# Saving the list to a CSV file
+def save_list_to_csv(my_list, filename):
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        for item in my_list:
+            writer.writerow([item])
+
+    print(f"List saved to {filename}")
 
 # Maximum iterations
 iterations = 1000 #number of steps/ iteration to run the simulation
@@ -113,27 +124,32 @@ pose = []
 control_velocity_input =[]
 centroid = []
 control_input =[]
-dist_robot = [[0] for _ in range(N)]
-cumulative_distance = np.zeros(N)
+#dist_robot = [[0] for _ in range(N)]
+#cumulative_distance = np.zeros(N)
+iteration_list =[]
 dist_all =0
 dist_all_each_iteration =[]
 previous_centroid =[]
-terminate_flag = False
+terminate_flag = [False for _ in range(N)]
+Hg = [] #locational cost
+
 for k in range(iterations):
+    print('iteration k = ', k)
     # Get the poses of the robots
     x = robo.get_poses()
     x_si = uni_to_si_states(x)
     for r in range(N):
         dist = math.sqrt(np.square(x_si[0,r,None]-current_x[r]) + np.square(x_si[1,r,None]-current_y[r]))
-        cumulative_distance[r] = cumulative_distance[r] + dist
         dist_all = dist_all + dist
-        dist_robot[r].append(cumulative_distance[r])
+        #cumulative_distance[r] = cumulative_distance[r] + dist
+        #dist_robot[r].append(cumulative_distance[r])
     dist_all_each_iteration.append(dist_all)
-    
+    iteration_list.append(k)
     
     current_x = x_si[0,:,None]
     current_y = x_si[1,:,None]
 
+    # updating position of robot labels
     for q in range(N):
         robot_labels[q].set_position([x_si[0,q],x_si[1,q]+0.2])
         robot_labels[q].set_fontsize(determine_font_size(robo,font_size_m))
@@ -142,25 +158,25 @@ for k in range(iterations):
     #g.set_offsets(x[:2,:].T)
     # This updates the marker sizes if the figure window size is changed. 
     # This should be removed when submitting to the Robotarium.
-   # g.set_sizes([determine_marker_size(robo,safety_radius)])
+    #g.set_sizes([determine_marker_size(robo,safety_radius)])
 
     sum_cord = np.zeros((N, 2))
     num_points = np.zeros(N)
     locations = [[] for _ in range(N)]
-
+    lcost =0
     for i, x_pos in enumerate(x_global_values):
         for j, y_pos in enumerate(y_global_values):
             importance_value = get_sensor(1,(x_pos,y_pos))
             distances =[]
             for r in range(N):
-                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r])))
-            min_value = np.min(distances)
-            min_indexes = np.where(distances==min_value)[0]
-            for min_index in min_indexes:
-                sum_cord[min_index][0] += x_pos*importance_value
-                sum_cord[min_index][1] += y_pos*importance_value
-                num_points[min_index] += 1
-                locations[min_index].append([x_pos, y_pos])
+                distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r]))-wij[0,r])
+            min_index = np.argmin(distances)
+            lcost = distances[min_index]
+            sum_cord[min_index][0] += x_pos*importance_value
+            sum_cord[min_index][1] += y_pos*importance_value
+            num_points[min_index] += 1
+            locations[min_index].append([x_pos, y_pos])
+
     
     if k>0:
         [plot.remove() for plot in hull_figHandles] 
@@ -176,9 +192,10 @@ for k in range(iterations):
         hull_figHandles.append(hullHandle)
 
 
+
     si_velocities = np.zeros((2,N))
-    Cx = []
-    Cy =[]
+    #Cx = []
+    #Cy =[]
 
     for r in range(N):
         centroid_x = 0
@@ -188,17 +205,15 @@ for k in range(iterations):
             centroid_y = sum_cord[r][1]/num_points[r] 
             centroid_position_difference_x  = centroid_x-current_x[r]    
             centroid_position_difference_y  = centroid_y-current_y[r]
-            if (abs(centroid_position_difference_x) < 0.05 and abs(centroid_position_difference_y) <0.05):
-                terminate_flag = True
-            else:
-                terminate_flag = False
+            terminate_flag[r] = (abs(centroid_position_difference_x) < 0.01 and abs(centroid_position_difference_y) <0.01)
             si_velocities[0][r]= 1*(centroid_x-current_x[r])
             si_velocities[1][r] = 1*(centroid_y-current_y[r])
-            Cx.append(centroid_x)
-            Cy.append(centroid_y)
-        
-    if terminate_flag:
-        print("here")
+            #Cx.append(centroid_x)
+            #Cy.append(centroid_y)
+
+    if all(flag == True for flag in terminate_flag):
+        print("Converged")
+        time.sleep(5)
         break
     robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x')
 
@@ -212,15 +227,14 @@ for k in range(iterations):
     robo.set_velocities(np.arange(N), dxu)
 
     #recording variables
-    pose.append(x)
-    centroid.append([Cx,Cy])
-    control_velocity_input.append(si_velocities)
-    control_input.append(dxu)
-    if not np.all(si_velocities):
-        break
+    #pose.append(x)
+    #centroid.append([Cx,Cy])
+    #control_velocity_input.append(si_velocities)
+    #control_input.append(dxu)
 
     # Iterate the simulation
     robo.step()
 
+save_list_to_csv(dist_all_each_iteration, './csv/cumulativeDistanceTravel_baseline0.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
