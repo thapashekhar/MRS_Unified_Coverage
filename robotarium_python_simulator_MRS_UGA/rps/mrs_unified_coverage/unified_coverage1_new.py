@@ -30,7 +30,7 @@ Hij[0] = [1, 1, 1, 1, 1]  # Sensor health of type 1
 Hij[1] = [1, 1, 1, 1, 1]  # Sensor health of type 2
 H = np.ones(N)  # Sensor health of each robot
 # Velocity of robots (m/s)
-Vr = np.ones(N) * 2
+Vr = np.array([1, 1, 1, 2, 1])
 
 # Range of robots Rrsi (normalized)
 Rrsi = [[] for _ in range(len(S))]
@@ -136,7 +136,7 @@ for k in range(iterations):
             importance_value = 1
             distances = np.zeros(N)
             for robots in range(N):
-                distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots])- weigth[robots])
+                distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))- weigth[robots])/Vr[robots]
             # print("distances", distances)
             min_index = np.argmin(distances)
             c_v[min_index][0] += ix * importance_value
@@ -156,7 +156,7 @@ for k in range(iterations):
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
         yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =8))
+        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
         hull_figHandles.append(hullHandle)  
     # Initialize the single-integrator control inputs
     si_velocities = np.zeros((2, N))
