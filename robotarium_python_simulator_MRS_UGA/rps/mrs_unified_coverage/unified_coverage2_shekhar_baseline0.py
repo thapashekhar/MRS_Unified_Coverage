@@ -15,7 +15,7 @@ from scipy.spatial import ConvexHull
 
 
 #Total number of robots
-N = 5
+N = 10
 # Laplacian for cycle
 L = completeGL(N)  #connectivity of robots (complete graph)
 
@@ -240,7 +240,7 @@ for k in range(iterations):
     proposed_cost.append(Hgen)
 
     if all(flag == True for flag in terminate_flag):
-        plt.savefig('./plot/baseline01_coverage.png')
+        plt.savefig('./plot/baseline01_coverageS10.png')
         print("Converged")
         time.sleep(5)
         break
@@ -264,11 +264,11 @@ for k in range(iterations):
     # Iterate the simulation
     robo.step()
 
-save_list_to_csv(cumulative_distance, './csv/cumulativeDistanceTravel_baseline0.csv')
-save_list_to_csv(locational_cost, './csv/locationalCost_baseline0.csv')
-save_list_to_csv(health_cost, './csv/healthCost_baseline0.csv')
-save_list_to_csv(mobility_cost, './csv/mobilityCost_baseline0.csv')
-save_list_to_csv(range_cost, './csv/rangeCost_baseline0.csv')
-save_list_to_csv(proposed_cost, './csv/proposedCost_baseline0.csv')
+save_list_to_csv(cumulative_distance, './csv/s10/cumulativeDistanceTravel_baseline0.csv')
+save_list_to_csv(locational_cost, './csv/s10/locationalCost_baseline0.csv')
+save_list_to_csv(health_cost, './csv/s10/healthCost_baseline0.csv')
+save_list_to_csv(mobility_cost, './csv/s10/mobilityCost_baseline0.csv')
+save_list_to_csv(range_cost, './csv/s10/rangeCost_baseline0.csv')
+save_list_to_csv(proposed_cost, './csv/s10/proposedCost_baseline0.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
