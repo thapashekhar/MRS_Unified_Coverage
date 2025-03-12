@@ -18,33 +18,34 @@ S = [1, 2]
 
 # Set of Robots for each sensor type Nj
 Nj = [[] for _ in range(len(S))]
-Nj[0] = [1, 2, 3, 4, 5]  # Set of robots with sensor type 1
-Nj[1] = [6, 7, 8, 9, 10]  # Set of robots with sensor type 2
-N_count = [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]  # Sensor type of each robot
+Nj[0] = [1, 2, 3]  # Set of robots with sensor type 1
+Nj[1] = [3, 4, 5]  # Set of robots with sensor type 2
+# Nj = [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]  # Sensor type of each robot
 # Weights of robot i for sensor type j
 wij = np.zeros((N, len(S)))
 
 # Health of robots for each sensor type hij (normalized)
 Hij = [[] for _ in range(len(S))]
-Hij[0] = [1, 1, 1, 1, 1]  # Sensor health of type 1
-Hij[1] = [1, 1, 1, 1, 1]  # Sensor health of type 2
-H = np.ones(N)  # Sensor health of each robot
+Hij[0] = [1, 0.5, 1]  # Sensor health of type 1
+Hij[1] = [1, 0.5, 1]   # Sensor health of type 2
+# H = np.ones(N)  # Sensor health of each robot
 # Velocity of robots (m/s)
-Vr = np.ones(N) * 2
+Vr = np.array([1, 1, 2, 1, 1])
 
 # Range of robots Rrsi (normalized)
 Rrsi = [[] for _ in range(len(S))]
-Rrsi[0] = [1, 1, 1, 1, 1]  # Range of robot with sensor type 1
-Rrsi[1] = [1, 1, 1, 1, 1]  # Range of robot with sensor type 2
+Rrsi[0] = [1, 0.5, 1]  # Range of robot with sensor type 1
+Rrsi[1] = [1, 0.5, 1]  # Range of robot with sensor type 2
 
 # Starting position of the robots
 initial_conditions = np.asarray([[1.25, 0.25, 0], [1, 0.5, 0], [1, -0.5, 0],
                                  [-1, 0.75, 0], [0.1, 0.2, 0], [0.2, -0.6, 0],
                                  [-0.75, -0.1, 0], [-1, 0, 0], [0.8, -0.25, 0], [1.3, -0.4, 0]])
-
-weight_i = np.zeros(N)
-# weight_i[0] = 1
-weight_i = np.array([1, 2, 1, 1, 4, 1, 1, 1, 1, 1])
+initial_conditions = np.asarray([[1.25, 0.25, 0], [1, 0.5, 0], [1, -0.5, 0],
+                                 [-1, 0.75, 0], [0.1, 0.2, 0]])
+# weight_i = np.zeros(N)
+# # weight_i[0] = 1
+# weight_i = np.array([1, 2, 1, 1, 4, 1, 1, 1, 1, 1])
 
 robo = robotarium.Robotarium(number_of_robots=N, show_figure=True, sim_in_real_time=False, initial_conditions=initial_conditions[0:N].T)
 
@@ -60,7 +61,7 @@ si_to_uni_dyn, uni_to_si_states = create_si_to_uni_mapping()
 
 safety_radius = 0.1
 # Generated a connected graph Laplacian (for a cylce graph).
-L = lineGL(N)
+L = completeGL(N)
 
 CM = [
     '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
@@ -109,6 +110,8 @@ y_global_values = np.arange(y_min, y_max + res, res)
 hull_local_handler = []
 locations = [[] for _ in range(N)]
 
+prev_x = np.zeros((2, N))
+
 for k in range(iterations):
     print('iteration k = ', k)
     # Get the poses of the robots and convert to single-integrator poses
@@ -129,14 +132,20 @@ for k in range(iterations):
 
     c_v = np.zeros((N,2))
     w_v = np.zeros(N)
-    weigth = np.zeros(N)
-    weigth = 0.1 * np.array([1, 1, 1, 4, 4])
+    weight = np.zeros(N)
+    # weigth = 0.1 * np.array([1, 1, 1, 4, 4])
+    for n in range(len(S)):
+        for m in Nj[n]:
+            index = Nj[n].index(m)
+            weight[m-1] = Hij[n][index] * Rrsi[n][index]
+    weight = weight / np.sum(weight)
+    print("weight", weight)
     for ix in np.arange(x_min,x_max,res):
         for iy in np.arange(y_min,y_max,res):
             importance_value = 1
             distances = np.zeros(N)
             for robots in range(N):
-                distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots])- weigth[robots])
+                distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))- weight[robots])/Vr[robots]
             # print("distances", distances)
             min_index = np.argmin(distances)
             c_v[min_index][0] += ix * importance_value
@@ -145,9 +154,10 @@ for k in range(iterations):
             locations[min_index].append([ix, iy])
    
          
-                
-    if k>0:
-        [plot.remove() for plot in hull_figHandles] 
+       
+    if k > 0:
+        for plot in hull_figHandles:
+            plot.remove()
     hull_figHandles =[]
     for r in range(N):
         q_points = np.array(locations[r])
@@ -156,7 +166,7 @@ for k in range(iterations):
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
         yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =8))
+        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
         hull_figHandles.append(hullHandle)  
     # Initialize the single-integrator control inputs
     si_velocities = np.zeros((2, N))
@@ -176,13 +186,25 @@ for k in range(iterations):
     # Use the barrier certificate to avoid collisions
     si_velocities = si_barrier_cert(si_velocities, x_si)
 
+    
     # Transform single integrator to unicycle
     dxu = si_to_uni_dyn(si_velocities, x)
-
+    # print("dxu", dxu)
+    for robots in range(N):
+        dxu = np.clip(dxu, -Vr[robots], Vr[robots])
     # Set the velocities of agents 1,...,N
     robo.set_velocities(np.arange(N), dxu)
     # Iterate the simulation
     robo.step()
+    
+    # Calculate the change in positions
+    diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
+    print("diff", diff)
+    if diff < 0.01:
+        break
+
+    # Update the previous positions
+    prev_x = x_si[:2, :]
 
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
