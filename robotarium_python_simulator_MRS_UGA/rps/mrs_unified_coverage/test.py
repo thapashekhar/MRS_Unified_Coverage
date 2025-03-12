@@ -11,7 +11,7 @@ import time
 
 
 #Scenerio initilization
-N, S, Nj, wij, Hij, Vr, Rrsi, hw = scenario_setting(scenario_number=10) # insert sceneraio number
+N, S, Nj, wij, Hij, Vr, Rrsi, hw = scenario_setting(scenario_number=3) # insert sceneraio number
 # N is number of robots
 # S sensor type
 # Nj is set of robots for each sensor type
@@ -200,7 +200,7 @@ for k in range(iterations):
     diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
     print("diff", diff)
     if diff < 0.01:
-        plt.savefig('./plot/coverageS10.png')
+        plt.savefig('./plot/coverageS3.png')
         print("Converged")
         time.sleep(5)
         break
@@ -209,11 +209,11 @@ for k in range(iterations):
     prev_x = x_si[:2, :]
 
 
-save_list_to_csv(locational_cost, './csv/s10/locationalCost.csv')
-save_list_to_csv(health_cost, './csv/s10/healthCost.csv')
-save_list_to_csv(mobility_cost, './csv/s10/mobilityCost.csv')
-save_list_to_csv(range_cost, './csv/s10/rangeCost.csv')
-save_list_to_csv(proposed_cost, './csv/s10/proposedCost.csv')
-save_list_to_csv(cumulative_distance, './csv/s10/cumulativeDistanceTravel.csv')
+save_list_to_csv(locational_cost, './csv/s3/locationalCost.csv')
+save_list_to_csv(health_cost, './csv/s3/healthCost.csv')
+save_list_to_csv(mobility_cost, './csv/s3/mobilityCost.csv')
+save_list_to_csv(range_cost, './csv/s3/rangeCost.csv')
+save_list_to_csv(proposed_cost, './csv/s3/proposedCost.csv')
+save_list_to_csv(cumulative_distance, './csv/s3/cumulativeDistanceTravel.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
