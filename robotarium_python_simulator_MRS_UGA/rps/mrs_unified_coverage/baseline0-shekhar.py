@@ -15,36 +15,12 @@ from scipy.spatial import ConvexHull
 
 
 #Total number of robots
-N = 5
+N = 10
 # Laplacian for cycle
 L = completeGL(N)  #connectivity of robots (complete graph)
 
-# sensor type
-S = [1,2] 
-
-# Set of Robots for each sensor typpe Nj
-Nj = [[] for _ in range(len(S))] 
-Nj[0] = [1,2,3,4,5]  # set of robots with sensor type 1
-Nj[1] = [6,7,8,9,10]  # set of robots with sensor type 2
-
-# weights of robot i for sensor type j
-wij = np.ones((len(S),N ))
-
-# Health of robots for each senosr type hij (normalized)
-Hij = [[] for _ in range(len(S))] 
-Hij[0] = [1,1,1,1,1]  # sensor health of type 1
-Hij[1] = [1,1,1,1,1]  # senosr health of type 2
-
-# Velocity of robots (m/s)
-Vr = np.ones(N)
-
-# Range of robots Rrsi (normalizied)
-Rrsi = [[] for _ in range(len(S))] 
-Rrsi[0] = [1,1,1,1,1]  # range of robot with sensor type 1
-Rrsi[1] = [1,1,1,1,1] # range of robot with sensor type 2
-
 # Density function
-def get_sensor(j,q):
+def get_sensor(x,y):
     phi = 1
     return phi
 
@@ -57,28 +33,6 @@ def save_list_to_csv(my_list, filename):
 
     print(f"List saved to {filename}")
 
-def calculate_distance(point1, point2):
-    return math.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
-
-def cost(N,locations,robot_position,sensor_type = 1, robot_velocity=1, weight=1, capacity=1):
-    locational_cost = 0
-    health_cost =0
-    mobility_cost =0
-    range_cost = 0
-    proposed_cost = 0
-    for r in range(N):
-        distances = [calculate_distance([robot_position[0][r],robot_position[1][r]], point)*get_sensor(point[0],point[1]) for point in locations[r]]
-        health = [0.5*(calculate_distance([robot_position[0][r],robot_position[1][r]], point)-weight)*get_sensor(point[0],point[1]) for point in locations[r]]
-        temporal = [(1/robot_velocity**2)*(calculate_distance([robot_position[0][r],robot_position[1][r]], point))*get_sensor(point[0],point[1]) for point in locations[r]]
-        rang = [calculate_distance([robot_position[0][r],robot_position[1][r]], point)*get_sensor(point[0],point[1]) for point in locations[r]]
-        locational_cost+=sum(distances)
-        health_cost+=sum(health)
-        mobility_cost+=sum(temporal)
-        range_cost+=sum(rang)
-
-    return locational_cost, health_cost, mobility_cost,range_cost, proposed_cost
-
-
 # Maximum iterations
 iterations = 1000 #number of steps/ iteration to run the simulation
 
@@ -87,7 +41,7 @@ x_min =-1.5
 x_max = 1.5
 y_min = -1.5
 y_max = 1.5
-res = 0.03
+res = 0.05
 x_global_values = np.arange(x_min,x_max+res,res)
 y_global_values = np.arange(y_min,y_max+res,res) 
 
@@ -117,7 +71,7 @@ line_width = 5
 # Plot workspace boundary
 boundary_points = [[x_min,y_min],[x_min,y_max],[x_max,y_max],[x_max,y_min],[x_min,y_min]] 
 bound_x, bound_y = zip(*boundary_points) 
-square, =robo.axes.plot(bound_x, bound_y, 'b-',linewidth = 8) 
+square, =robo.axes.plot(bound_x, bound_y, 'b-',linewidth = 5) 
 robo.axes.set_xlim(x_min-0.2,x_max+0.2) 
 robo.axes.set_ylim(y_min-0.2,y_max+0.2)  
 
@@ -137,7 +91,6 @@ for jj in range(1,N+1):
 # initial labeling of robots
 robot_labels = [robo.axes.text(x[0,kk],x[1,kk]+0.2,robot_number_text[kk],fontsize=font_size, color='b',fontweight='bold',horizontalalignment='center',verticalalignment='center',zorder=0)
 for kk in range(0,N)]
-robo.axes.scatter(x[0,:], x[1,:], s=35, color= ["green" for i in range(N)], marker='x')
 
 robo.step() # Iterate the simulation
 
@@ -153,11 +106,7 @@ dist_all =0
 cumulative_distance =[]
 previous_centroid =[]
 terminate_flag = [False for _ in range(N)]
-locational_cost =[]
-health_cost = []
-mobility_cost = []
-range_cost = []
-proposed_cost =[]
+Hg = [] #locational cost
 
 for k in range(iterations):
     print('iteration k = ', k)
@@ -187,6 +136,7 @@ for k in range(iterations):
     sum_cord = np.zeros((N, 2))
     num_points = np.zeros(N)
     locations = [[] for _ in range(N)]
+    lcost =0
     for i, x_pos in enumerate(x_global_values):
         for j, y_pos in enumerate(y_global_values):
             importance_value = get_sensor(1,(x_pos,y_pos))
@@ -194,10 +144,12 @@ for k in range(iterations):
             for r in range(N):
                 distances.append(math.sqrt(np.square(x_pos-current_x[r]) + np.square(y_pos-current_y[r])))
             min_index = np.argmin(distances)
+            lcost += distances[min_index]*get_sensor(1,(x_pos,y_pos))
             sum_cord[min_index][0] += x_pos*importance_value
             sum_cord[min_index][1] += y_pos*importance_value
             num_points[min_index] += 1
             locations[min_index].append([x_pos, y_pos])
+    Hg.append(lcost)
 
     
     if k>0:
@@ -210,7 +162,7 @@ for k in range(iterations):
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
         xss = np.concatenate((xss, [xss[0]]))   # hull.vertices does not provide closed boundary, adding a clyclic vertices for enclosed geometry
         yss = np.concatenate((yss, [yss[0]]))
-        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =3))
+        hullHandle, =  (robo.axes.plot(xss, yss,'b-',linewidth =5))
         hull_figHandles.append(hullHandle)
 
 
@@ -232,18 +184,12 @@ for k in range(iterations):
             si_velocities[1][r] = 1*(centroid_y-current_y[r])
             #Cx.append(centroid_x)
             #Cy.append(centroid_y)
-    Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x]) 
-    locational_cost.append(Hg)
-    health_cost.append(Hp)
-    mobility_cost.append(Ht)
-    range_cost.append(Hr)
-    proposed_cost.append(Hgen)
 
     if all(flag == True for flag in terminate_flag):
-        plt.savefig('./plot/baseline01_coverage.png')
         print("Converged")
         time.sleep(5)
         break
+
     robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x')
 
     # Make sure that the robots don't collide
@@ -265,10 +211,6 @@ for k in range(iterations):
     robo.step()
 
 save_list_to_csv(cumulative_distance, './csv/cumulativeDistanceTravel_baseline0.csv')
-save_list_to_csv(locational_cost, './csv/locationalCost_baseline0.csv')
-save_list_to_csv(health_cost, './csv/healthCost_baseline0.csv')
-save_list_to_csv(mobility_cost, './csv/mobilityCost_baseline0.csv')
-save_list_to_csv(range_cost, './csv/rangeCost_baseline0.csv')
-save_list_to_csv(proposed_cost, './csv/proposedCost_baseline0.csv')
+save_list_to_csv(Hg, './csv/locationalCost_baseline0.csv')
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
