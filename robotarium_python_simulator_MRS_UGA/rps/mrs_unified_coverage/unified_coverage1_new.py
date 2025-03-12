@@ -6,6 +6,7 @@ from rps.utilities.misc import *
 from rps.utilities.controllers import *
 from scipy.spatial import ConvexHull, Voronoi
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Instantiate Robotarium object
 N = 5
@@ -30,7 +31,7 @@ Hij[0] = [1, 0.5, 1]  # Sensor health of type 1
 Hij[1] = [1, 0.5, 1]   # Sensor health of type 2
 # H = np.ones(N)  # Sensor health of each robot
 # Velocity of robots (m/s)
-Vr = np.array([1, 1, 2, 1, 1])
+Vr = np.array([1, 1, 1, 1, 1])
 
 # Range of robots Rrsi (normalized)
 Rrsi = [[] for _ in range(len(S))]
@@ -108,8 +109,8 @@ robo.step()  # Iterate the simulation
 x_global_values = np.arange(x_min, x_max + res, res)
 y_global_values = np.arange(y_min, y_max + res, res)
 hull_local_handler = []
-locations = [[] for _ in range(N)]
 
+cost_list = []
 prev_x = np.zeros((2, N))
 
 for k in range(iterations):
@@ -133,6 +134,7 @@ for k in range(iterations):
     c_v = np.zeros((N,2))
     w_v = np.zeros(N)
     weight = np.zeros(N)
+    locations = [[] for _ in range(N)]
     # weigth = 0.1 * np.array([1, 1, 1, 4, 4])
     for n in range(len(S)):
         for m in Nj[n]:
@@ -140,19 +142,22 @@ for k in range(iterations):
             weight[m-1] = Hij[n][index] * Rrsi[n][index]
     weight = weight / np.sum(weight)
     print("weight", weight)
-    
+    cost = 0
     for ix in np.arange(x_min,x_max,res):
         for iy in np.arange(y_min,y_max,res):
             importance_value = 1
             distances = np.zeros(N)
             for robots in range(N):
                 distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))- weight[robots])/Vr[robots]
+                cost += ((np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))- weight[robots])/Vr[robots]**2
             # print("distances", distances)
+            
             min_index = np.argmin(distances)
             c_v[min_index][0] += ix * importance_value
             c_v[min_index][1] += iy * importance_value
             w_v[min_index] += 1
             locations[min_index].append([ix, iy])
+
    
          
        
@@ -185,6 +190,8 @@ for k in range(iterations):
             
           si_velocities[:, robots] = 1 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
 
+    print("cost", cost)
+    cost_list.append(cost[0])
     # Use the barrier certificate to avoid collisions
     si_velocities = si_barrier_cert(si_velocities, x_si)
 
@@ -202,11 +209,20 @@ for k in range(iterations):
     # Calculate the change in positions
     diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
     print("diff", diff)
-    if diff < 0.01:
+    if diff < 0.005:
         break
+        
 
     # Update the previous positions
     prev_x = x_si[:2, :]
-
+    
+plt.figure()
+print(cost_list)
+plt.plot(cost_list)
+plt.xlabel('Iteration')
+plt.ylabel('Cost')
+plt.title('Cost vs. Iteration')
+plt.grid(True)
+plt.show()
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
