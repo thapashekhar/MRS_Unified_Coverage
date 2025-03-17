@@ -11,7 +11,7 @@ import time
 
 
 #Scenerio initilization
-scenario_number = 6
+scenario_number = 1
 
 N, S, Nj, wij, Hij, Vr, Rrsi, hw = scenario_setting(scenario_number) # insert sceneraio number
 # N is number of robots
@@ -31,7 +31,7 @@ initial_conditions = np.asarray([[1.25, 0.25, 0], [1, 0.5, 0], [1, -0.5, 0],
 robo = robotarium.Robotarium(number_of_robots=N, show_figure=True, sim_in_real_time=False, initial_conditions=initial_conditions[0:N].T)
 
 # How many iterations do we want (about N*0.033 seconds)
-iterations = 500
+iterations = 1000
 
 # We're working in single-integrator dynamics, and we don't want the robots
 # to collide or drive off the testbed.  Thus, we're going to use barrier certificates
@@ -89,7 +89,7 @@ robot_labels = [robo.axes.text(x_i[0, kk], x_i[1, kk] + 0.2, robot_number_text[k
                 for kk in range(0, N)]
 
 robo.axes.scatter(x[0,:], x[1,:], s=35, color= [CM[i] for i in range(N)], marker='x') #Initial point mark
-
+#robo.axes.text(-0.9,y_max+0.1, "Proposed Unified Coverage, Scenario = 1", fontsize=12, fontweight='bold') #Plot title
 robo.step()  # Iterate the simulation
 
 
@@ -102,7 +102,6 @@ health_cost = []
 mobility_cost = []
 range_cost = []
 proposed_cost =[]
-convergence_flag = True
 
 for k in range(iterations):
     print('iteration k = ', k)
@@ -173,8 +172,8 @@ for k in range(iterations):
           c_x = c_v[robots][0] / w_v[robots]
           c_y = c_v[robots][1] / w_v[robots]  
           # control inputs          
-          si_velocities[:, robots] = 5 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
-
+          si_velocities[:, robots] = 1 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
+    #Cost calculation
     Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight,hw) 
     locational_cost.append(Hg)
     health_cost.append(Hp)
@@ -200,12 +199,8 @@ for k in range(iterations):
     diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
     print("diff", diff)
     if diff < 0.01:
-        if convergence_flag:
-            converged_T = k
-            print("Converged")
-            title_ = f'Proposed Unified Coverage, Scenario = {scenario_number}, T_converge = {converged_T}'
-            robo.axes.text(-0.9, y_max+0.1, f'Proposed Unified Coverage, Scenario = {scenario_number}, T_converge = {converged_T}', fontsize=12, fontweight='bold') #Plot title
-            plt.savefig(f'./plot/s{scenario_number}.png')
+        #plt.savefig('./plot/coverageS6.png')
+        print("Converged")
         time.sleep(5)
         break
     # Update the previous positions
@@ -217,7 +212,7 @@ for k in range(iterations):
 #save_list_to_csv(mobility_cost, './csv/s6/mobilityCost.csv') n
 #save_list_to_csv(range_cost, './csv/s6/rangeCost.csv')
 #save_list_to_csv(proposed_cost, './csv/s6/proposedCost.csv')
-#save_list_to_csv(cumulative_distance, './csv/s6/cumulativeDistanceTravel.csv'
+#save_list_to_csv(cumulative_distance, './csv/s6/cumulativeDistanceTravel.csv')
 
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()

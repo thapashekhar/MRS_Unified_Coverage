@@ -8,12 +8,12 @@ from scipy.spatial import ConvexHull, Voronoi
 import numpy as np
 from test_utilities import *
 import time
-
+import pandas as pd
 
 #Scenerio initilization
-scenario_number = 6
+scenario_number = 10
 
-N, S, Nj, wij, Hij, Vr, Rrsi, hw = scenario_setting(scenario_number) # insert sceneraio number
+N, S, Nj, wij, Hij, Vr, Rrsi, hw, Rr = scenario_setting(scenario_number) # insert sceneraio number
 # N is number of robots
 # S sensor type
 # Nj is set of robots for each sensor type
@@ -31,7 +31,7 @@ initial_conditions = np.asarray([[1.25, 0.25, 0], [1, 0.5, 0], [1, -0.5, 0],
 robo = robotarium.Robotarium(number_of_robots=N, show_figure=True, sim_in_real_time=False, initial_conditions=initial_conditions[0:N].T)
 
 # How many iterations do we want (about N*0.033 seconds)
-iterations = 500
+iterations = 600
 
 # We're working in single-integrator dynamics, and we don't want the robots
 # to collide or drive off the testbed.  Thus, we're going to use barrier certificates
@@ -77,6 +77,8 @@ robo.axes.set_ylim(y_min - 0.2, y_max + 0.3)
 # Initial plots
 x = robo.get_poses()
 x_i = uni_to_si_states(x)
+current_x = x_i[0,:,None]
+current_y = x_i[1,:,None]
 g = robo.axes.scatter(x_i[0, :], x_i[1, :], s=np.pi / 4 * safety_radius_marker_size, marker='o', facecolors='none', edgecolors=CM, linewidth=3)
 
 # Robot number text generator
@@ -89,7 +91,7 @@ robot_labels = [robo.axes.text(x_i[0, kk], x_i[1, kk] + 0.2, robot_number_text[k
                 for kk in range(0, N)]
 
 robo.axes.scatter(x[0,:], x[1,:], s=35, color= [CM[i] for i in range(N)], marker='x') #Initial point mark
-
+#robo.axes.text(-0.9,y_max+0.1, "Proposed Unified Coverage, Scenario = 1", fontsize=12, fontweight='bold') #Plot title
 robo.step()  # Iterate the simulation
 
 
@@ -103,18 +105,20 @@ mobility_cost = []
 range_cost = []
 proposed_cost =[]
 convergence_flag = True
+iteration_ =[]
+terminate_flag = [False for _ in range(N)]
 
 for k in range(iterations):
     print('iteration k = ', k)
     # Get the poses of the robots and convert to single-integrator poses
     x = robo.get_poses()
     x_si = uni_to_si_states(x)
-    current_x = x_si[0,:,None]
-    current_y = x_si[1,:,None]
     for r in range(N):
         dist = np.sqrt(np.square(x_si[0,r,None]-current_x[r]) + np.square(x_si[1,r,None]-current_y[r]))
         dist_all = dist_all + dist
-    cumulative_distance.append(dist_all)
+    cumulative_distance.append(float(dist_all))
+    current_x = x_si[0,:,None]
+    current_y = x_si[1,:,None]
     
     for q in range(N):
         robot_labels[q].set_position([x_si[0, q], x_si[1, q] + 0.2])
@@ -133,7 +137,7 @@ for k in range(iterations):
     for n in range(len(S)):
         for m in Nj[n]:
             index = Nj[n].index(m)
-            weight[m-1] = Hij[n][index] * Rrsi[n][index]
+            weight[m-1] += Hij[n][index] * Rrsi[n][index]
     weight = weight / np.sum(weight)
     print("weight", weight)
     locations = [[] for _ in range(N)]
@@ -143,7 +147,10 @@ for k in range(iterations):
             importance_value = get_sensor((ix,iy))
             distances = np.zeros(N)
             for robots in range(N):
-                distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))-weight[robots])/Vr[robots]
+                if k ==0:
+                    distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))
+                else:
+                    distances[robots] = (np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))-weight[robots])/Vr[robots]
             # print("distances", distances)
             min_index = np.argmin(distances)
             c_v[min_index][0] += ix * importance_value
@@ -173,14 +180,26 @@ for k in range(iterations):
           c_x = c_v[robots][0] / w_v[robots]
           c_y = c_v[robots][1] / w_v[robots]  
           # control inputs          
-          si_velocities[:, robots] = 5 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
+          si_velocities[:, robots] = 1 * [(c_x - current_x[robots][0]), (c_y - current_y[robots][0] )]
+          centroid_position_difference_x  = c_x-current_x[r][0]    
+          centroid_position_difference_y  = c_y-current_y[r][0]
+          terminate_flag[r] = (abs(centroid_position_difference_x) < 0.01 and abs(centroid_position_difference_y) <0.01)
 
-    Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight,hw) 
-    locational_cost.append(Hg)
-    health_cost.append(Hp)
-    mobility_cost.append(Ht)
-    range_cost.append(Hr)
-    proposed_cost.append(Hgen)
+    if k==0:
+        Vr0 = [1 for r in range(N)]
+        weight0 =[1/N for r in range(N)]
+        hw0 = [1/N for r in range(N)]
+        Rr0 = [1 for r in range(N)]
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr0,weight0,hw0,Rr0)
+    else:
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight,hw,Rr)
+
+    locational_cost.append(float(Hg[0]))
+    health_cost.append(float(Hp[0]))
+    mobility_cost.append(float(Ht[0]))
+    range_cost.append(float(Hr[0]))
+    proposed_cost.append(float(Hgen[0]))
+    iteration_.append(k)
 
     # Use the barrier certificate to avoid collisions
     #si_velocities = si_barrier_cert(si_velocities, x_si)
@@ -197,27 +216,30 @@ for k in range(iterations):
     robo.axes.scatter(x[0,:], x[1,:], s=5, color= ["red" for i in range(N)], marker='x') # plotting trajectory
 
     # Calculate the change in positions
-    diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
-    print("diff", diff)
-    if diff < 0.01:
+    print(terminate_flag)
+    diff = np.linalg.norm(x_si[:2, :] - prev_x, axis=0)
+    each = np.linalg.norm(x_si[:2, :] - prev_x, axis=0).sum()
+    print("diff", each)
+    #if diff < 0.002:
+    if all(d <=1e-3 for d in diff):
         if convergence_flag:
             converged_T = k
             print("Converged")
-            title_ = f'Proposed Unified Coverage, Scenario = {scenario_number}, T_converge = {converged_T}'
-            robo.axes.text(-0.9, y_max+0.1, f'Proposed Unified Coverage, Scenario = {scenario_number}, T_converge = {converged_T}', fontsize=12, fontweight='bold') #Plot title
-            plt.savefig(f'./plot/s{scenario_number}.png')
-        time.sleep(5)
-        break
+            title_ = f'Proposed Unified Coverage, Scenario = {scenario_number}, Converged at t = {converged_T}'
+            print(title_)
+            robo.axes.text(-1.5,y_max+0.1, title_, fontsize=12, fontweight='bold') #Plot title
+            plt.savefig(f'./plot/plot/s{scenario_number}.png')
+            convergence_flag = False
+        #time.sleep(5)
+       # break
     # Update the previous positions
     prev_x = x_si[:2, :]
 
 # CSV file saving
-#save_list_to_csv(locational_cost, './csv/s6/locationalCost.csv')
-#save_list_to_csv(health_cost, './csv/s6/healthCost.csv')
-#save_list_to_csv(mobility_cost, './csv/s6/mobilityCost.csv') n
-#save_list_to_csv(range_cost, './csv/s6/rangeCost.csv')
-#save_list_to_csv(proposed_cost, './csv/s6/proposedCost.csv')
-#save_list_to_csv(cumulative_distance, './csv/s6/cumulativeDistanceTravel.csv'
+# Convert lists into a DataFrame
+df = pd.DataFrame({'iteration': iteration_, 'locational_cost': locational_cost, 'health_cost': health_cost, 'mobility_cost': mobility_cost, 'range_cost': range_cost, 'proposed_cost': proposed_cost,'cumulative_distance': cumulative_distance})
+# Save to CSV
+df.to_csv(f'./plot/cost/cost_all{scenario_number}.csv', index=False)  # `index=False` to avoid adding row indices
 
 #Call at end of script to print debug information and for your script to run on the Robotarium server properly
 robo.call_at_scripts_end()
