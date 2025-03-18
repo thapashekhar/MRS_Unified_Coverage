@@ -11,7 +11,7 @@ import time
 import pandas as pd
 
 #Scenerio initilization
-scenario_number = 7
+scenario_number = 10
 
 N, S, Nj, wij, Hij, Vr, Rrsi, hw, Rr = scenario_setting(scenario_number) # insert sceneraio number
 # N is number of robots
@@ -161,15 +161,15 @@ for k in range(iterations):
     locations_new = [[] for _ in range(N)]
     for robots in range(N):
         for point in locations[robots]:
-            #calculate_distance(point,[current_x,current_y] )
-
+            if calculate_distance(point,[current_x[robots],current_y[robots]]) <= Rr[robots]:
+                locations_new[robots].append(point)
 
     if k > 0:
         for plot in hull_figHandles:
             plot.remove()
     hull_figHandles =[]
     for r in range(N):
-        q_points = np.array(locations[r])
+        q_points = np.array(locations_new[r])
         hull = ConvexHull(q_points)
         boundary_points = q_points[hull.vertices]
         xss, yss = boundary_points[:, 0], boundary_points[:, 1]
@@ -194,9 +194,9 @@ for k in range(iterations):
         weight0 =[1/N for r in range(N)]
         hw0 = [1/N for r in range(N)]
         Rr0 = [1 for r in range(N)]
-        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr0,weight0,hw0,Rr0)
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_y],Vr0,weight0,hw0,Rr0)
     else:
-        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight,hw,Rr)
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations_new,[current_x,current_y],Vr,weight,hw,Rr)
 
     locational_cost.append(float(Hg[0]))
     health_cost.append(float(Hp[0]))

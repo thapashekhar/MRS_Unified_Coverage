@@ -150,7 +150,7 @@ for k in range(iterations):
                 if k ==0:
                     distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))
                 else:
-                    distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))-hw[robots] # Baseline3
+                    distances[robots] = np.sqrt(np.square(ix - current_x[robots]) + np.square(iy - current_y[robots]))-hw[robots] 
 
             # print("distances", distances)
             min_index = np.argmin(distances)
@@ -188,9 +188,9 @@ for k in range(iterations):
         weight0 =[1/N for r in range(N)]
         hw0 = [1/N for r in range(N)]
         Rr0 = [1 for r in range(N)]
-        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr0,weight0,hw0,Rr0)
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_y],Vr0,weight0,hw0,Rr0)
     else:
-        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_x],Vr,weight,hw,Rr)
+        Hg, Hp, Ht, Hr, Hgen = cost(N,locations,[current_x,current_y],Vr,weight,hw,Rr)
 
     locational_cost.append(float(Hg[0]))
     health_cost.append(float(Hp[0]))
